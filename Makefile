@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra
 
 # Executable name
-TARGET = post-api
+TARGET = socket
 
 # Source, build, and include directories
 SRCDIR = src

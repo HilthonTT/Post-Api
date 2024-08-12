@@ -15,7 +15,7 @@ typedef struct Post {
 
 char* generate_identifier();
 
-void add_post(const char *title, const char *description);
+char* add_post(const char *title, const char *description);
 
 void remove_post(const char *id);
 

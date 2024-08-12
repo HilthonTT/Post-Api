@@ -22,12 +22,12 @@ char* generate_identifier() {
         num1, num2 >> 16, num2 & 0xFFFF,
         num3 >> 16, num3 & 0xFFFF, num4);
 
-    printf("Generated identifier!");
+    printf("Generated identifier!\n");
 
     return identifier;
 }
 
-void add_post(const char *title, const char *description) {
+char* add_post(const char *title, const char *description) {
     Post *new_post = (Post *)malloc(sizeof(Post));
     
     if (new_post == NULL) {
@@ -48,6 +48,8 @@ void add_post(const char *title, const char *description) {
 
     new_post->next = post_list;
     post_list = new_post;
+
+    return id;
 }
 
 void remove_post(const char *id) {

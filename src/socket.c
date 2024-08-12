@@ -1,6 +1,7 @@
-/* api.c */
+/* socket.c */
 
-#include "api.h"
+#include "socket.h"
+#include <api.h>
 
 int initialize_socket() {
     WSADATA wsa;
@@ -60,6 +61,23 @@ int main() {
     SOCKET server_socket = initialize_server_socket();
     if (server_socket == INVALID_SOCKET) {
         cleanup(server_socket);
+    }
+
+    printf("Waiting for incoming connections on %d\n", PORT);
+
+    struct sockaddr_in client_addr;
+    int client_addr_len = sizeof(client_addr);
+    SOCKET client_socket;
+
+    while (true) {
+        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+
+        if (client_socket == INVALID_SOCKET) {
+            printf("Accept failed with error code: %d\n", WSAGetLastError());
+            break;
+        }
+
+        handle_post_client(client_socket);
     }
 
     cleanup(server_socket);

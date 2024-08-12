@@ -4,6 +4,7 @@
     "stdbool.h": "c",
     "stdio.h": "c",
     "post.h": "c",
-    "time.h": "c"
+    "time.h": "c",
+    "winsock2.h": "c"
   }
 }
