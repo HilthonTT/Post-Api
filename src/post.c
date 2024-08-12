@@ -32,7 +32,7 @@ char* add_post(const char *title, const char *description) {
     
     if (new_post == NULL) {
         printf("Memory allocated failed for the new post\n");
-        return;
+        return NULL;
     }
 
     char *id = generate_identifier();

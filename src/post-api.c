@@ -3,7 +3,33 @@
 #include <post.h>
 #include <api.h>
 
-void handle_post_request(SOCKET client_socket, const char *headers, const char *body) {
+void send_response(SOCKET client_socket, const char* status, const char* content_type, const char* body) {
+    char response[BUFFER_SIZE];
+
+    snprintf(response, sizeof(response),
+        "HTTP/1.1 %s\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %llu\r\n"  // Use %llu for size_t cast to unsigned long long
+        "Connection: close\r\n"
+        "\r\n"
+        "%s",
+        status, content_type, (unsigned long long)strlen(body), body);
+
+    send(client_socket, response, strlen(response), 0);
+}
+
+void log_request(char *buffer, size_t length) {
+    char *path = buffer + length;
+    char *end_path = strchr(path, ' ');
+
+    if (end_path) {
+        *end_path = '\0';
+    }
+
+    printf("Requested path: %s\n", path);
+}
+
+void handle_post_request(SOCKET client_socket, const char *body) {
     /* GETTING THE TITLE */
     const char *title_str = "\"title\": \"";
     char *title_pos = strstr(body, title_str);
@@ -24,7 +50,7 @@ void handle_post_request(SOCKET client_socket, const char *headers, const char *
     size_t title_length = end_title_pos - title_pos;
     char *title = malloc(title_length + 1);
     if (!title) {
-        send_response(client_socket, "500 Internal Server Error", APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
+        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
         return;
     }
     strncpy(title, title_pos, title_length);
@@ -55,7 +81,7 @@ void handle_post_request(SOCKET client_socket, const char *headers, const char *
     char *description = malloc(description_length + 1);
     if (!description) {
         free(title);
-        send_response(client_socket, "500 Internal Server Error", APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
+        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
         return;
     }
     strncpy(description, description_pos, description_length);
@@ -66,6 +92,12 @@ void handle_post_request(SOCKET client_socket, const char *headers, const char *
     /* SAVE THE POST IN MEMORY */
     
     char* id = add_post(title, description);
+    if (!id) {
+        free(title);
+        free(description);
+        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
+        return;
+    }
 
     char response_body[BUFFER_SIZE];
     snprintf(
@@ -106,7 +138,7 @@ void handle_post_client(SOCKET client_socket) {
 
     if (strncmp(buffer, "POST ", 5) == 0) {
         log_request(buffer, 5);
-        handle_post_request(client_socket, buffer, body);
+        handle_post_request(client_socket, body);
     } else {
         send_response(client_socket, BAD_REQUEST_400, TEXT_PLAIN_CONTENT_TYPE, "Method not supported");
     }
