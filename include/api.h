@@ -6,7 +6,7 @@
 
 #define BAD_REQUEST_400 "400 Bad Request"
 #define OK_200 "200 Ok"
-#define NOT_FOUND_400 "400 Not found"
+#define NOT_FOUND_404 "404 Not found"
 #define INTERNAL_ERROR_500 "500 Internal Server Error"
 
 #define TEXT_PLAIN_CONTENT_TYPE "text/plain"

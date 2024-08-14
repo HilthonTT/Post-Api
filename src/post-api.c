@@ -18,7 +18,7 @@ void send_response(SOCKET client_socket, const char* status, const char* content
     send(client_socket, response, strlen(response), 0);
 }
 
-void log_request(char *buffer, size_t length) {
+char* log_request(char *buffer, size_t length) {
     char *path = buffer + length;
     char *end_path = strchr(path, ' ');
 
@@ -27,6 +27,8 @@ void log_request(char *buffer, size_t length) {
     }
 
     printf("Requested path: %s\n", path);
+
+    return path;
 }
 
 void handle_post_request(SOCKET client_socket, const char *body) {
@@ -112,6 +114,45 @@ void handle_post_request(SOCKET client_socket, const char *body) {
     free(description);   // Free the allocated memory
 }
 
+void handle_get_request(SOCKET client_socket, const char *path) {
+    char post_id[37]; 
+
+    if (sscanf(path, "/%36s", post_id) != 1) {
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Bad request\"}");
+        return;
+    }
+
+    printf("The path: %s\n", path);
+    printf("Parsed post_id: %s\n", post_id);
+
+    post_id[36] = '\0';
+
+    char response_body[BUFFER_SIZE];
+
+    Post *post = get_post(post_id);
+    if (!post) {
+        snprintf(
+            response_body,
+            sizeof(response_body),
+            "{\"message\": \"Post with Id = '%s' was not found\"}",
+            post_id);
+
+        send_response(client_socket, NOT_FOUND_404, APPLICATION_JSON_CONTENT_TYPE, response_body);
+        return;
+    }
+    
+    snprintf(
+        response_body,
+        sizeof(response_body),
+        "{\"id\": \"%s\", \"title\": \"%s\", \"description\": \"%s\"}",
+        post->id,
+        post->title,
+        post->description);
+    
+    send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE, response_body);
+}
+
+
 void handle_post_client(SOCKET client_socket) {
     char buffer[BUFFER_SIZE];
     int recv_size;
@@ -139,6 +180,9 @@ void handle_post_client(SOCKET client_socket) {
     if (strncmp(buffer, "POST ", 5) == 0) {
         log_request(buffer, 5);
         handle_post_request(client_socket, body);
+    } else if (strncmp(buffer, "GET ", 4) == 0) {
+        char* path = log_request(buffer, 4);
+        handle_get_request(client_socket, path);
     } else {
         send_response(client_socket, BAD_REQUEST_400, TEXT_PLAIN_CONTENT_TYPE, "Method not supported");
     }
