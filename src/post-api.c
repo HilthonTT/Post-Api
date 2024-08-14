@@ -31,7 +31,12 @@ char* log_request(char *buffer, size_t length) {
     return path;
 }
 
-void handle_post_request(SOCKET client_socket, const char *body) {
+void handle_post_request(SOCKET client_socket, const char *body, const char *path) {
+     if (strcmp(path, "/post") != 0) {
+        send_response(client_socket, NOT_FOUND_404, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Invalid path\"}");
+        return;
+    }
+
     /* GETTING THE TITLE */
     const char *title_str = "\"title\": \"";
     char *title_pos = strstr(body, title_str);
@@ -115,9 +120,10 @@ void handle_post_request(SOCKET client_socket, const char *body) {
 }
 
 void handle_get_request(SOCKET client_socket, const char *path) {
-    char post_id[37]; 
+    char post_id[POST_ID_SIZE]; 
 
-    if (sscanf(path, "/%36s", post_id) != 1) {
+    if (sscanf(path, "/post/%36s", post_id) != 1) {
+        printf("Failed to extract post_id from the path\n");
         send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Bad request\"}");
         return;
     }
@@ -125,7 +131,7 @@ void handle_get_request(SOCKET client_socket, const char *path) {
     printf("The path: %s\n", path);
     printf("Parsed post_id: %s\n", post_id);
 
-    post_id[36] = '\0';
+    post_id[POST_ID_SIZE - 1] = '\0';
 
     char response_body[BUFFER_SIZE];
 
@@ -152,6 +158,38 @@ void handle_get_request(SOCKET client_socket, const char *path) {
     send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE, response_body);
 }
 
+void handle_delete_request(SOCKET client_socket, const char *path) {
+    char post_id[POST_ID_SIZE];
+
+    if (sscanf(path, "/post/%36s", post_id) != 1) {
+        printf("Failed to extract post_id from the path\n");
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Bad request\"}");
+        return;
+    }
+
+    post_id[POST_ID_SIZE - 1] = '\0';
+    
+    printf("The path: %s\n", path);
+    printf("Parsed post_id: %s\n", post_id);
+
+    Post *post = get_post(post_id);
+    if (!post) {
+        char response_body[BUFFER_SIZE];
+        snprintf(
+            response_body,
+            sizeof(response_body),
+            "{\"message\": \"Post with Id = '%s' was not found\"}",
+            post_id);
+
+        send_response(client_socket, NOT_FOUND_404, APPLICATION_JSON_CONTENT_TYPE, response_body);
+
+        return;
+    }
+
+    remove_post(post_id);
+
+    send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE,  "{\"message\": \"Post deleted!\"}");
+}
 
 void handle_post_client(SOCKET client_socket) {
     char buffer[BUFFER_SIZE];
@@ -177,12 +215,23 @@ void handle_post_client(SOCKET client_socket) {
     // Move to the start of the body (which is after the headers)
     char *body = headers_end + 4;
 
-    if (strncmp(buffer, "POST ", 5) == 0) {
-        log_request(buffer, 5);
-        handle_post_request(client_socket, body);
-    } else if (strncmp(buffer, "GET ", 4) == 0) {
-        char* path = log_request(buffer, 4);
+    size_t post_length = strlen("POST ");
+    size_t get_length = strlen("GET ");
+    size_t delete_length = strlen("DELETE ");
+
+    bool isPostRequest = strncmp(buffer, "POST ", post_length) == 0;
+    bool isGetRequest = strncmp(buffer, "GET ", get_length) == 0;
+    bool isDeleteRequest = strncmp(buffer, "DELETE ", delete_length) == 0;
+
+    if (isPostRequest) {
+        char* path = log_request(buffer, post_length);
+        handle_post_request(client_socket, body, path);
+    } else if (isGetRequest) {
+        char* path = log_request(buffer, get_length);
         handle_get_request(client_socket, path);
+    } else if (isDeleteRequest) {
+        char *path = log_request(buffer, delete_length);
+        handle_delete_request(client_socket, path);
     } else {
         send_response(client_socket, BAD_REQUEST_400, TEXT_PLAIN_CONTENT_TYPE, "Method not supported");
     }

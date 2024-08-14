@@ -20,7 +20,7 @@ OBJS = $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 INCLUDES = -I$(INCDIR)
 
 # Libraries to link against
-LIBS = -lws2_32
+LIBS = -lws2_32 -lRpcrt4
 
 # Default rule to build executable
 $(OBJDIR)/$(TARGET): $(OBJS)

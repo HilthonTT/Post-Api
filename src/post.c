@@ -5,26 +5,26 @@
 Post *post_list = NULL;
 
 char* generate_identifier() {
-    static char identifier[37];
+    static char uuid_string[POST_ID_SIZE];
+    UUID uuid;
+    RPC_CSTR uuid_cstr = NULL;
 
-    srand(time(NULL));
+    // Generate a UUID
+    if (UuidCreate(&uuid) == RPC_S_OK) {
+        // Convert UUID to a string
+        if (UuidToStringA(&uuid, &uuid_cstr) == RPC_S_OK) {
+            // Copy the UUID string to our buffer
+            snprintf(uuid_string, POST_ID_SIZE, "%s", uuid_cstr);
+            // Free the memory allocated by UuidToStringA
+            RpcStringFreeA(&uuid_cstr);
+        } else {
+            snprintf(uuid_string, POST_ID_SIZE, "Failed to convert UUID to string");
+        }
+    } else {
+        snprintf(uuid_string, POST_ID_SIZE, "Failed to generate UUID");
+    }
 
-    // Generate four 32-bit random numbers
-    unsigned int num1 = rand();
-    unsigned int num2 = rand();
-    unsigned int num3 = rand();
-    unsigned int num4 = rand();
-
-    // Convert the random numbers to a string
-    sprintf(
-        identifier, 
-        "%08x-%04x-%04x-%04x-%08x%04x",
-        num1, num2 >> 16, num2 & 0xFFFF,
-        num3 >> 16, num3 & 0xFFFF, num4);
-
-    printf("Generated identifier!\n");
-
-    return identifier;
+    return uuid_string;
 }
 
 char* add_post(const char *title, const char *description) {
