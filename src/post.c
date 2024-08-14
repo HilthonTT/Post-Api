@@ -116,3 +116,25 @@ void free_posts() {
 
     post_list = NULL;
 }
+
+bool update_post(const char *id, const char *new_title, const char *new_description) {
+    Post *current = post_list;
+
+    while (current != NULL) {
+        bool post_found = (strcmp(current->id, id) == 0);
+
+        if (post_found) {
+            strncpy(current->title, new_title, sizeof(current->title) - 1);
+            current->title[sizeof(current->title) - 1] = '\0';
+
+            strncpy(current->description, new_description, sizeof(current->description) - 1);
+            current->description[sizeof(current->description) - 1] = '\0';
+
+            return true;
+        }
+
+        current = current->next;
+    }
+
+    return false;
+}

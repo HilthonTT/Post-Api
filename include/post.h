@@ -5,8 +5,13 @@
 #include <time.h>
 #include <string.h>
 #include <stdbool.h>
+#include <winsock2.h>
+#include <windows.h>
 #include <rpc.h>
+
+#ifdef _MSC_VER
 #pragma comment(lib, "Rpcrt4.lib")
+#endif
 
 #define POST_ID_SIZE 37
 
@@ -26,3 +31,5 @@ void remove_post(const char *id);
 Post* get_post(const char *id);
 
 void free_posts();
+
+bool update_post(const char *id, const char *new_title, const char *new_description);

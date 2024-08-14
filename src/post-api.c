@@ -31,73 +31,59 @@ char* log_request(char *buffer, size_t length) {
     return path;
 }
 
+char* extract_field(const char *body, const char *field_name) {
+    const char *field_str = field_name;
+    char *field_pos = strstr(body, field_str);
+
+    if (!field_pos) {
+        return NULL;
+    }
+
+    field_pos += strlen(field_str); // Move the pointer to the start of the field value
+    char *end_field_pos = strchr(field_pos, '"');
+    if (!end_field_pos) {
+        return NULL;
+    }
+
+    // Dynamically allocate memory for the field string
+    size_t field_length = end_field_pos - field_pos;
+    char *field_value = malloc(field_length + 1);
+    if (!field_value) {
+        return NULL;
+    }
+
+    strncpy(field_value, field_pos, field_length);
+    field_value[field_length] = '\0'; // Null terminate the string
+
+    return field_value;
+}
+
 void handle_post_request(SOCKET client_socket, const char *body, const char *path) {
-     if (strcmp(path, "/post") != 0) {
+    if (strcmp(path, "/post") != 0) {
         send_response(client_socket, NOT_FOUND_404, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Invalid path\"}");
         return;
     }
 
     /* GETTING THE TITLE */
-    const char *title_str = "\"title\": \"";
-    char *title_pos = strstr(body, title_str);
-
-    if (!title_pos) {
-        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing title\"}");
-        return;
-    }
-
-    title_pos += strlen(title_str); // Move the pointer to the start of the title value
-    char *end_title_pos = strchr(title_pos, '"');
-    if (!end_title_pos) {
-        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Invalid title format\"}");
-        return;
-    }
-
-    // Dynamically allocate memory for the title string
-    size_t title_length = end_title_pos - title_pos;
-    char *title = malloc(title_length + 1);
+    char *title = extract_field(body, "\"title\": \"");
     if (!title) {
-        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing or invalid title\"}");
         return;
     }
-    strncpy(title, title_pos, title_length);
-    title[title_length] = '\0'; // Null terminate the string
 
     printf("Received title: %s\n", title);
 
     /* GETTING THE DESCRIPTION */
-    const char *description_str = "\"description\": \"";
-    char *description_pos = strstr(body, description_str);
-
-    if (!description_pos) {
-        free(title);
-        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing description\"}");
-        return;
-    }
-
-    description_pos += strlen(description_str); // Move the pointer to the start of the description value
-    char *end_description_pos = strchr(description_pos, '"');
-    if (!end_description_pos) {
-        free(title);
-        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Invalid description format\"}");
-        return;
-    }
-
-    // Dynamically allocate memory for the description string
-    size_t description_length = end_description_pos - description_pos;
-    char *description = malloc(description_length + 1);
+    char *description = extract_field(body, "\"description\": \"");
     if (!description) {
         free(title);
-        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Memory allocation failed\"}");
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing or invalid description\"}");
         return;
     }
-    strncpy(description, description_pos, description_length);
-    description[description_length] = '\0'; // Null terminate the string
 
     printf("Received description: %s\n", description);
 
     /* SAVE THE POST IN MEMORY */
-    
     char* id = add_post(title, description);
     if (!id) {
         free(title);
@@ -191,6 +177,63 @@ void handle_delete_request(SOCKET client_socket, const char *path) {
     send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE,  "{\"message\": \"Post deleted!\"}");
 }
 
+void handle_put_request(SOCKET client_socket, const char *body, const char *path) {
+    char post_id[POST_ID_SIZE];
+
+    if (sscanf(path, "/post/%36s", post_id) != 1) {
+        printf("Failed to extract post_id from the path\n");
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Bad request\"}");
+        return;
+    }
+
+    post_id[POST_ID_SIZE - 1] = '\0';
+    
+    printf("The path: %s\n", path);
+    printf("Parsed post_id: %s\n", post_id);
+
+    Post *post = get_post(post_id);
+    if (!post) {
+        char response_body[BUFFER_SIZE];
+        snprintf(
+            response_body,
+            sizeof(response_body),
+            "{\"message\": \"Post with Id = '%s' was not found\"}",
+            post_id);
+
+        send_response(client_socket, NOT_FOUND_404, APPLICATION_JSON_CONTENT_TYPE, response_body);
+
+        return;
+    }
+
+    /* GETTING THE TITLE */
+    char *title = extract_field(body, "\"title\": \"");
+    if (!title) {
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing or invalid title\"}");
+        return;
+    }
+
+    printf("Received title: %s\n", title);
+
+    /* GETTING THE DESCRIPTION */
+    char *description = extract_field(body, "\"description\": \"");
+    if (!description) {
+        free(title);
+        send_response(client_socket, BAD_REQUEST_400, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Missing or invalid description\"}");
+        return;
+    }
+
+    bool isSucessful = update_post(post_id, title, description);
+
+    if (isSucessful) {
+        send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Post updated!\"}");
+    } else {
+        send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Internal server error\"}");
+    }
+
+    free(title);
+    free(description);
+}
+
 void handle_post_client(SOCKET client_socket) {
     char buffer[BUFFER_SIZE];
     int recv_size;
@@ -218,10 +261,12 @@ void handle_post_client(SOCKET client_socket) {
     size_t post_length = strlen("POST ");
     size_t get_length = strlen("GET ");
     size_t delete_length = strlen("DELETE ");
+    size_t put_length = strlen("PUT ");
 
     bool isPostRequest = strncmp(buffer, "POST ", post_length) == 0;
     bool isGetRequest = strncmp(buffer, "GET ", get_length) == 0;
     bool isDeleteRequest = strncmp(buffer, "DELETE ", delete_length) == 0;
+    bool isPutRequest = strncmp(buffer, "PUT ", put_length) == 0;
 
     if (isPostRequest) {
         char* path = log_request(buffer, post_length);
@@ -232,6 +277,9 @@ void handle_post_client(SOCKET client_socket) {
     } else if (isDeleteRequest) {
         char *path = log_request(buffer, delete_length);
         handle_delete_request(client_socket, path);
+    } else if (isPutRequest) {
+        char *path = log_request(buffer, put_length);
+        handle_put_request(client_socket, body, path);
     } else {
         send_response(client_socket, BAD_REQUEST_400, TEXT_PLAIN_CONTENT_TYPE, "Method not supported");
     }
