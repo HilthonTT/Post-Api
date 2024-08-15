@@ -28,6 +28,8 @@ char* add_post(const char *title, const char *description);
 
 void remove_post(const char *id);
 
+Post** get_all_posts(size_t *count);
+
 Post* get_post(const char *id);
 
 void free_posts();

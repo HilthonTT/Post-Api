@@ -106,6 +106,52 @@ void handle_post_request(SOCKET client_socket, const char *body, const char *pat
 }
 
 void handle_get_request(SOCKET client_socket, const char *path) {
+    if (strcmp(path, "/posts") == 0) {
+        // Handle the request to fetch all posts
+        size_t count;
+        Post **posts = get_all_posts(&count);
+
+        if (count == 0) {
+            send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE, "[]");
+            free(posts);
+            return;
+        }
+
+        char response_body[BUFFER_SIZE];
+        char *response_ptr = response_body;
+
+        // Start the JSON array
+        response_ptr += snprintf(response_ptr, sizeof(response_body), "[");
+
+        // Add each post to the JSON array
+        for (size_t i = 0; i < count; i++) {
+            response_ptr += snprintf(
+                response_ptr,
+                sizeof(response_body) - (response_ptr - response_body),
+                "{\"id\": \"%s\", \"title\": \"%s\", \"description\": \"%s\"}%s",
+                posts[i]->id,
+                posts[i]->title,
+                posts[i]->description,
+                (i < count - 1) ? "," : ""
+            );
+
+            // Check if we've exceeded the buffer size
+            if ((size_t)(response_ptr - response_body) >= sizeof(response_body)) {
+                send_response(client_socket, INTERNAL_ERROR_500, APPLICATION_JSON_CONTENT_TYPE, "{\"message\": \"Response too large\"}");
+                free(posts);
+                return;
+            }
+        }
+
+        // Close the JSON array
+        snprintf(response_ptr, sizeof(response_body) - (response_ptr - response_body), "]");
+
+        send_response(client_socket, OK_200, APPLICATION_JSON_CONTENT_TYPE, response_body);
+
+        free(posts); // Free the allocated memory for the posts array
+        return;
+    }
+
     char post_id[POST_ID_SIZE]; 
 
     if (sscanf(path, "/post/%36s", post_id) != 1) {

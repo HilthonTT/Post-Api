@@ -89,6 +89,30 @@ void remove_post(const char *id) {
     printf("The post with Id = '%s' was not found in the posts.\n", id);
 }
 
+Post** get_all_posts(size_t *count) {
+    *count = 0;
+
+    Post *current = post_list;
+    while (current != NULL) {
+        (*count)++;
+        current = current->next;
+    }
+
+    Post **posts_array= (Post **)malloc(*count * sizeof(Post *));
+    if (posts_array == NULL) {
+        printf("Allocation failed for posts array\n");
+        return NULL;
+    }
+
+    current = post_list;
+    for (size_t i = 0; i < *count; i++) {
+        posts_array[i] = current;
+        current = current->next;
+    }
+
+    return posts_array;
+}
+
 Post* get_post(const char *id) {
     Post *current = post_list;
 
